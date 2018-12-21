@@ -140,17 +140,25 @@ if __name__ == '__main__':
     for k, v in train_params.items():
         print("\t%s: %s" % (k, v))
 
+
     print("Prepare training data...")
     data_provider = get_data_provider_by_name(args.dataset, train_params)
+
+
     print("Initialize the model..")
     model = DenseNet(data_provider=data_provider, **model_params)
+
+
     if args.train:
-        print("Data provider train images: ", data_provider.train.num_examples)
+        print("Training...", data_provider.train.num_examples)
         model.train_all_epochs(train_params)
+
+
     if args.test:
         if not args.train:
             model.load_model()
-        print("Data provider test images: ", data_provider.test.num_examples)
+        print("Load test images: ", data_provider.test.num_examples)
+
         print("Testing...")
         loss, accuracy = model.test(data_provider.test, batch_size=200)
         print("mean cross_entropy: %f, mean accuracy: %f" % (loss, accuracy))
