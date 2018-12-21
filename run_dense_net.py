@@ -4,7 +4,7 @@ from models.dense_net import DenseNet
 from data_providers.utils import get_data_provider_by_name
 
 train_params_cifar = {
-    'batch_size': 64,
+    'batch_size': 256,
     'n_epochs': 300,
     'initial_learning_rate': 0.1,
     'reduce_lr_epoch_1': 150,  # epochs * 0.5
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     data_provider = get_data_provider_by_name(args.dataset, train_params)
 
 
-    print("Initialize the model..")
+    print("Initialize the {} model..".format(args.model_type))
     model = DenseNet(data_provider=data_provider, **model_params)
 
 
