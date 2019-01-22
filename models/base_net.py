@@ -9,9 +9,8 @@ import tensorflow as tf
 
 TF_VERSION = float('.'.join(tf.__version__.split('.')[:2]))
 
-from .base_net import BaseNet
 
-class DenseNet(BaseNet):
+class BaseNet:
     def __init__(self, data_provider, growth_rate, depth,
                  total_blocks, keep_prob, num_inter_threads, num_intra_threads,
                  weight_decay, nesterov_momentum, model_type, dataset,
