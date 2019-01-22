@@ -7,13 +7,16 @@ import numpy as np
 import tensorflow as tf
 
 
+from .base_net import BaseNet
+
 TF_VERSION = float('.'.join(tf.__version__.split('.')[:2]))
 
 
-class DenseNet:
+class DenseNet(BaseNet):
     def __init__(self, data_provider, growth_rate, depth,
-                 total_blocks, keep_prob, num_inter_threads, num_intra_threads,
-                 weight_decay, nesterov_momentum, model_type, dataset,
+                 total_blocks, keep_prob,
+                 num_inter_threads, num_intra_threads,
+                 weight_decay, nesterov_momentum, model_type, dataset_name,
                  should_save_logs, should_save_model,
                  renew_logs=False,
                  reduction=1.0,
@@ -34,7 +37,7 @@ class DenseNet:
             nesterov_momentum: `float`, momentum for Nesterov optimizer
             model_type: `str`, 'DenseNet' or 'DenseNet-BC'. Should model use
                 bottle neck connections or not.
-            dataset: `str`, dataset name
+            dataset_name: `str`, dataset name
             should_save_logs: `bool`, should logs be saved or not
             should_save_model: `bool`, should model be saved or not
             renew_logs: `bool`, remove previous logs for current model
@@ -49,8 +52,6 @@ class DenseNet:
         self.n_classes = data_provider.n_classes
         self.depth = depth
         self.growth_rate = growth_rate
-        self.num_inter_threads = num_inter_threads
-        self.num_intra_threads = num_intra_threads
         # how many features will be received after first convolution
         # value the same as in the original Torch code
         self.first_output_features = growth_rate * 2
@@ -63,7 +64,8 @@ class DenseNet:
             print("Build %s model with %d blocks, "
                   "%d composite layers each." % (
                       model_type, self.total_blocks, self.layers_per_block))
-        if bc_mode:
+        else:
+        #if bc_mode:
             self.layers_per_block = self.layers_per_block // 2
             print("Build %s model with %d blocks, "
                   "%d bottleneck layers and %d composite layers each." % (
@@ -75,7 +77,7 @@ class DenseNet:
         self.weight_decay = weight_decay
         self.nesterov_momentum = nesterov_momentum
         self.model_type = model_type
-        self.dataset_name = dataset
+        self.dataset_name = dataset_name
         self.should_save_logs = should_save_logs
         self.should_save_model = should_save_model
         self.renew_logs = renew_logs
@@ -85,77 +87,6 @@ class DenseNet:
         self._build_graph()
         self._initialize_session()
         self._count_trainable_params()
-
-    def _initialize_session(self):
-        """Initialize session, variables, saver"""
-        config = tf.ConfigProto()
-
-        # Specify the CPU inter and Intra threads used by MKL
-        config.intra_op_parallelism_threads = self.num_intra_threads
-        config.inter_op_parallelism_threads = self.num_inter_threads
-
-        # restrict model GPU memory utilization to min required
-        config.gpu_options.allow_growth = True
-        self.sess = tf.Session(config=config)
-        tf_ver = int(tf.__version__.split('.')[1])
-        if TF_VERSION <= 0.10:
-            self.sess.run(tf.initialize_all_variables())
-            logswriter = tf.train.SummaryWriter
-        else:
-            self.sess.run(tf.global_variables_initializer())
-            logswriter = tf.summary.FileWriter
-        self.saver = tf.train.Saver()
-        self.summary_writer = logswriter(self.logs_path)
-
-    def _count_trainable_params(self):
-        total_parameters = 0
-        for variable in tf.trainable_variables():
-            shape = variable.get_shape()
-            variable_parametes = 1
-            for dim in shape:
-                variable_parametes *= dim.value
-            total_parameters += variable_parametes
-        print("Total training params: %.1fM" % (total_parameters / 1e6))
-
-    @property
-    def save_path(self):
-        try:
-            save_path = self._save_path
-        except AttributeError:
-            save_path = 'saves/%s' % self.model_identifier
-            os.makedirs(save_path, exist_ok=True)
-            save_path = os.path.join(save_path, 'model.chkpt')
-            self._save_path = save_path
-        return save_path
-
-    @property
-    def logs_path(self):
-        try:
-            logs_path = self._logs_path
-        except AttributeError:
-            logs_path = 'logs/%s' % self.model_identifier
-            if self.renew_logs:
-                shutil.rmtree(logs_path, ignore_errors=True)
-            os.makedirs(logs_path, exist_ok=True)
-            self._logs_path = logs_path
-        return logs_path
-
-    @property
-    def model_identifier(self):
-        return "{}_growth_rate={}_depth={}_dataset_{}".format(
-            self.model_type, self.growth_rate, self.depth, self.dataset_name)
-
-    def save(self, global_step=None):
-        self.saver.save(self.sess, self.save_path, global_step=global_step)
-
-    def load(self):
-        try:
-            self.saver.restore(self.sess, self.save_path)
-        except Exception as e:
-            raise IOError("Failed to to load model "
-                          "from save path: %s" % self.save_path)
-        self.saver.restore(self.sess, self.save_path)
-        print("Successfully load model from save path: %s" % self.save_path)
 
     def log_loss_accuracy(self, loss, accuracy, epoch, prefix,
                           should_print=True):
@@ -173,18 +104,15 @@ class DenseNet:
     def _define_inputs(self):
         shape = [None]
         shape.extend(self.data_shape)
-        self.placeholder_images = tf.placeholder(
-            tf.float32,
-            shape=shape,
-            name='input_images')
-        self.placeholder_labels = tf.placeholder(
-            tf.float32,
-            shape=[None, self.n_classes],
-            name='labels')
-        self.placeholder_learning_rate = tf.placeholder(
-            tf.float32,
-            shape=[],
-            name='learning_rate')
+        self.placeholder_images = tf.placeholder(tf.float32,
+                                                 shape=shape,
+                                                 name='input_images')
+        self.placeholder_labels = tf.placeholder(tf.float32,
+                                                 shape=[None, self.n_classes],
+                                                 name='labels')
+        self.placeholder_learning_rate = tf.placeholder(tf.float32,
+                                                        shape=[],
+                                                        name='learning_rate')
         self.placeholder_is_training = tf.placeholder(tf.bool, shape=[])
 
     def composite_function(self, _input, out_features, kernel_size=3):

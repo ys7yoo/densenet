@@ -146,7 +146,7 @@ if __name__ == '__main__':
 
 
     print("Initialize the {} model..".format(args.model_type))
-    model = DenseNet(data_provider=data_provider, **model_params)
+    model = DenseNet(data_provider=data_provider, dataset_name=args.dataset, **model_params)
 
 
     if args.train:

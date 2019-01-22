@@ -7,7 +7,7 @@ import zipfile
 
 def report_download_progress(count, block_size, total_size):
     pct_complete = float(count * block_size) / total_size
-    msg = "\r {0:.1%} already downloaded".format(pct_complete)
+    msg = "\r {0:.1%} downloaded".format(pct_complete)
     sys.stdout.write(msg)
     sys.stdout.flush()
 
