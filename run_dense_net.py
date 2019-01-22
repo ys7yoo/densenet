@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
     if args.test:
         if not args.train:
-            model.load_model()
+            model.load()
         print("Load test images: ", data_provider.test.num_examples)
 
         print("Testing...")

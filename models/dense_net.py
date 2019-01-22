@@ -145,10 +145,10 @@ class DenseNet:
         return "{}_growth_rate={}_depth={}_dataset_{}".format(
             self.model_type, self.growth_rate, self.depth, self.dataset_name)
 
-    def save_model(self, global_step=None):
+    def save(self, global_step=None):
         self.saver.save(self.sess, self.save_path, global_step=global_step)
 
-    def load_model(self):
+    def load(self):
         try:
             self.saver.restore(self.sess, self.save_path)
         except Exception as e:
@@ -173,19 +173,19 @@ class DenseNet:
     def _define_inputs(self):
         shape = [None]
         shape.extend(self.data_shape)
-        self.images = tf.placeholder(
+        self.placeholder_images = tf.placeholder(
             tf.float32,
             shape=shape,
             name='input_images')
-        self.labels = tf.placeholder(
+        self.placeholder_labels = tf.placeholder(
             tf.float32,
             shape=[None, self.n_classes],
             name='labels')
-        self.learning_rate = tf.placeholder(
+        self.placeholder_learning_rate = tf.placeholder(
             tf.float32,
             shape=[],
             name='learning_rate')
-        self.is_training = tf.placeholder(tf.bool, shape=[])
+        self.placeholder_is_training = tf.placeholder(tf.bool, shape=[])
 
     def composite_function(self, _input, out_features, kernel_size=3):
         """Function from paper H_l that performs:
@@ -225,7 +225,8 @@ class DenseNet:
         if not self.bc_mode:
             comp_out = self.composite_function(
                 _input, out_features=growth_rate, kernel_size=3)
-        elif self.bc_mode:
+        #elif self.bc_mode:
+        else:
             bottleneck_out = self.bottleneck(_input, out_features=growth_rate)
             comp_out = self.composite_function(
                 bottleneck_out, out_features=growth_rate, kernel_size=3)
@@ -297,14 +298,14 @@ class DenseNet:
 
     def batch_norm(self, _input):
         output = tf.contrib.layers.batch_norm(
-            _input, scale=True, is_training=self.is_training,
+            _input, scale=True, is_training=self.placeholder_is_training,
             updates_collections=None)
         return output
 
     def dropout(self, _input):
         if self.keep_prob < 1:
             output = tf.cond(
-                self.is_training,
+                self.placeholder_is_training,
                 lambda: tf.nn.dropout(_input, self.keep_prob),
                 lambda: _input
             )
@@ -334,7 +335,7 @@ class DenseNet:
         # first - initial 3 x 3 conv to first_output_features
         with tf.variable_scope("Initial_convolution"):
             output = self.conv2d(
-                self.images,
+                self.placeholder_images,
                 out_features=self.first_output_features,
                 kernel_size=3)
 
@@ -353,20 +354,20 @@ class DenseNet:
 
         # Losses
         cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-            logits=logits, labels=self.labels))
+            logits=logits, labels=self.placeholder_labels))
         self.cross_entropy = cross_entropy
         l2_loss = tf.add_n(
             [tf.nn.l2_loss(var) for var in tf.trainable_variables()])
 
         # optimizer and train step
         optimizer = tf.train.MomentumOptimizer(
-            self.learning_rate, self.nesterov_momentum, use_nesterov=True)
+            self.placeholder_learning_rate, self.nesterov_momentum, use_nesterov=True)
         self.train_step = optimizer.minimize(
             cross_entropy + l2_loss * self.weight_decay)
 
         correct_prediction = tf.equal(
             tf.argmax(prediction, 1),
-            tf.argmax(self.labels, 1))
+            tf.argmax(self.placeholder_labels, 1))
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
     def train_all_epochs(self, train_params):
@@ -403,7 +404,7 @@ class DenseNet:
                 str(timedelta(seconds=seconds_left))))
 
             if self.should_save_model:
-                self.save_model()
+                self.save()
 
         total_training_time = time.time() - total_start_time
         print("\nTotal training time: %s" % str(timedelta(
@@ -417,10 +418,10 @@ class DenseNet:
             batch = data.next_batch(batch_size)
             images, labels = batch
             feed_dict = {
-                self.images: images,
-                self.labels: labels,
-                self.learning_rate: learning_rate,
-                self.is_training: True,
+                self.placeholder_images: images,
+                self.placeholder_labels: labels,
+                self.placeholder_learning_rate: learning_rate,
+                self.placeholder_is_training: True,
             }
             fetches = [self.train_step, self.cross_entropy, self.accuracy]
             result = self.sess.run(fetches, feed_dict=feed_dict)
@@ -443,9 +444,9 @@ class DenseNet:
         for i in range(num_examples // batch_size):
             batch = data.next_batch(batch_size)
             feed_dict = {
-                self.images: batch[0],
-                self.labels: batch[1],
-                self.is_training: False,
+                self.placeholder_images: batch[0],
+                self.placeholder_labels: batch[1],
+                self.placeholder_is_training: False,
             }
             fetches = [self.cross_entropy, self.accuracy]
             loss, accuracy = self.sess.run(fetches, feed_dict=feed_dict)
