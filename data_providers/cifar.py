@@ -138,7 +138,7 @@ class CifarDataProvider(DataProvider):
         train_fnames, test_fnames = self.get_filenames(self.save_path)
 
         # add train and validations datasets
-        images, labels = self.read_cifar(train_fnames)
+        images, labels = self.read(train_fnames)
         if validation_set is not None and validation_split is not None:
             split_idx = int(images.shape[0] * (1 - validation_split))
             self.train = CifarDataSet(
@@ -159,7 +159,7 @@ class CifarDataProvider(DataProvider):
                 augmentation=self.data_augmentation)
 
         # add test set
-        images, labels = self.read_cifar(test_fnames)
+        images, labels = self.read(test_fnames)
         self.test = CifarDataSet(
             images=images, labels=labels,
             shuffle=None, n_classes=self.n_classes,
@@ -195,7 +195,7 @@ class CifarDataProvider(DataProvider):
         """Return two lists of train and test filenames for dataset"""
         raise NotImplementedError
 
-    def read_cifar(self, filenames):
+    def read(self, filenames):
         if self.n_classes == 10:
             labels_key = b'labels'
         elif self.n_classes == 100:
@@ -254,7 +254,7 @@ class Cifar100AugmentedDataProvider(Cifar100DataProvider):
 
 
 if __name__ == '__main__':
-    # some sanity checks for Cifar data providers
+    # some SANITY checks for Cifar data providers
     import matplotlib.pyplot as plt
 
     # plot some CIFAR10 images with classes
